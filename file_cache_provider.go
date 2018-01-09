@@ -49,6 +49,9 @@ type FileCacheProvider struct {
 	Creds   *credentials.Credentials
 	curr    *cachedCredential
 	profile string
+
+	// how long before the creds expire; the AWS default is 15 mins
+	Duration time.Duration
 }
 
 // GetCachePath returns location of the cache file
@@ -99,7 +102,10 @@ func (f *FileCacheProvider) Retrieve() (credentials.Value, error) {
 
 	switch credValue.ProviderName {
 	case stscreds.ProviderName:
-		cred := &cachedCredential{credValue, time.Now().UTC().Add(stscreds.DefaultDuration)}
+		if f.Duration.Seconds() == 0 {
+			f.Duration = stscreds.DefaultDuration
+		}
+		cred := &cachedCredential{credValue, time.Now().UTC().Add(f.Duration)}
 		f.curr = cred
 		content, err := json.Marshal(cred)
 		if err != nil {

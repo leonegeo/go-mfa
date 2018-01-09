@@ -13,6 +13,8 @@ import (
 	"github.com/leonegeo/mfacache"
 )
 
+var expiryMinutes = 60 * 3
+
 func main() {
 	if len(os.Args) != 2 {
 		usage()
@@ -55,7 +57,7 @@ func check(err error) {
 }
 
 func doSet() {
-	sess, err := mfacache.NewSession()
+	sess, err := mfacache.NewSession(time.Minute * time.Duration(expiryMinutes))
 	check(err)
 
 	// force the issue

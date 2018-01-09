@@ -4,6 +4,8 @@
 package mfacache
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -11,7 +13,7 @@ import (
 
 // NewSession returns a new session, using the cache: you can use this
 // function as an example of how to do things in your own app.
-func NewSession() (*session.Session, error) {
+func NewSession(duration time.Duration) (*session.Session, error) {
 
 	opts := session.Options{
 		SharedConfigState:       session.SharedConfigEnable,
@@ -22,10 +24,13 @@ func NewSession() (*session.Session, error) {
 		return nil, err
 	}
 
+	provider := &FileCacheProvider{
+		Creds:    sess.Config.Credentials,
+		Duration: duration,
+	}
+
 	// Inject cache able credential provider on top of the SDK's credentials loader
-	sess.Config.Credentials = credentials.NewCredentials(&FileCacheProvider{
-		Creds: sess.Config.Credentials,
-	})
+	sess.Config.Credentials = credentials.NewCredentials(provider)
 
 	return sess, nil
 }
