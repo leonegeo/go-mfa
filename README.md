@@ -1,4 +1,4 @@
-# go-mfa
+# mfacache
 Cache provider for AWS MFA tokens in Go
 
 This package allows for apps using the AWS Go SDK to cache their MFA tokens.
