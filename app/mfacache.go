@@ -1,5 +1,5 @@
 // Copyright 2018, Radiant Solutions
-// Licensed under the Apache License, Version 2.0package mfa
+// Licensed under the Apache License, Version 2.0
 
 package main
 
