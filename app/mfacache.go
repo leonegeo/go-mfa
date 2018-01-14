@@ -10,10 +10,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/leonegeo/mfacache"
 )
-
-var expiryMinutes = 60 * 3
 
 func main() {
 	if len(os.Args) != 2 {
@@ -23,17 +22,15 @@ func main() {
 	switch os.Args[1] {
 
 	case "set":
+		doDelete()
 		doSet()
+		doShow()
 
 	case "show":
 		doShow()
 
 	case "delete":
 		doDelete()
-
-	case "reset":
-		doDelete()
-		doSet()
 
 	default:
 		usage()
@@ -42,10 +39,9 @@ func main() {
 
 func usage() {
 	fmt.Printf("usage:\n")
-	fmt.Printf("  $ mfa set      # reads your MFA token and stores your creds\n")
+	fmt.Printf("  $ mfa set      # removes your stored creds, then reads your MFA token and stores a new set\n")
 	fmt.Printf("  $ mfa show     # reads your cached creds and displays them\n")
 	fmt.Printf("  $ mfa delete   # removes your stored creds\n")
-	fmt.Printf("  $ mfa reset    # same as 'mfa delete ; mfa set'\n")
 
 	os.Exit(1)
 }
@@ -57,21 +53,15 @@ func check(err error) {
 }
 
 func doSet() {
-	sess, err := mfacache.NewSession(time.Minute * time.Duration(expiryMinutes))
+	err := mfacache.StoreCredentials(mfacache.DefaultDuration)
 	check(err)
-
-	// force the issue
-	_, err = sess.Config.Credentials.Get()
-	check(err)
-
-	doShow()
 }
 
 func doShow() {
-	path, file, err := mfacache.GetCachePath("")
+	path, err := mfacache.GetCachePath(mfacache.DefaultProfile)
 	check(err)
 
-	byts, err := ioutil.ReadFile(path + "/" + file)
+	byts, err := ioutil.ReadFile(path)
 	check(err)
 
 	value := map[string]interface{}{}
@@ -82,17 +72,26 @@ func doShow() {
 	check(err)
 	d := t.Sub(time.Now()).Round(time.Second)
 
-	fmt.Printf("Cache           %s/%s\n", path, file)
+	fmt.Printf("Cache           %s\n", path)
 	fmt.Printf("AccessKeyId     %s\n", value["AccessKeyID"])
 	fmt.Printf("SecretAccessKey %s...\n", value["SecretAccessKey"].(string)[:4])
 	fmt.Printf("SessionToken    %s...\n", value["SessionToken"].(string)[:4])
 	fmt.Printf("ProviderName    %s\n", value["ProviderName"])
 	fmt.Printf("Expiration      %s (%s)\n", value["Expiration"], d)
+
+	sess, err := mfacache.NewSession()
+	check(err)
+
+	svc := iam.New(sess)
+	input := iam.ListUsersInput{}
+	output, err := svc.ListUsers(&input)
+	check(err)
+	fmt.Printf("User count:     %d\n", len(output.Users))
 }
 
 func doDelete() {
-	path, file, err := mfacache.GetCachePath("")
+	path, err := mfacache.GetCachePath(mfacache.DefaultProfile)
 	check(err)
 
-	_ = os.Remove(path + "/" + file)
+	_ = os.Remove(path)
 }
