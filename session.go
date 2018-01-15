@@ -71,7 +71,7 @@ func NewSession() (*session.Session, error) {
 		return nil, err
 	}
 
-	// static provider creds are never actually expire don the client side,
+	// static provider creds are never actually expired on the client side,
 	// so we shall do an explicit check here ourselves
 	if time.Now().After(cachedCreds.Expiration) {
 		return nil, fmt.Errorf("MFA token has expired")
@@ -80,11 +80,18 @@ func NewSession() (*session.Session, error) {
 	// make a set of official creds
 	creds := credentials.NewStaticCredentialsFromCreds(cachedCreds.Value)
 
-	// and make a proper session out of it
-	config := aws.Config{
-		Credentials: creds,
+	// and make a proper session out of it: the Config settings, with the
+	// creds, should override the normal AWS config files
+	opts := session.Options{
+		Config: aws.Config{
+			Credentials: creds,
+		},
+		SharedConfigState: session.SharedConfigEnable,
 	}
-	sess := session.New(&config)
+	sess, err := session.NewSessionWithOptions(opts)
+	if err != nil {
+		return nil, err
+	}
 
 	// verify the creds are working. Better to fail now than at some
 	// random point later on.
