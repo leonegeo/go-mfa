@@ -5,6 +5,7 @@ package mfacache
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -63,6 +64,11 @@ func StoreCredentials(duration time.Duration) error {
 // is required, it'll just error out. You can use the supplied app to generate
 // the token from the command line.
 func NewSession() (*session.Session, error) {
+
+	useMFA, ok := os.LookupEnv("MFACACHE")
+	if !ok || useMFA != "1" {
+		return session.NewSession()
+	}
 
 	// read the cached creds
 	cachedCreds := &CachedCredential{}
