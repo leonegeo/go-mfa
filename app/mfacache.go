@@ -15,22 +15,34 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
+	var verb, profile string
+
+	switch len(os.Args) {
+	case 2:
+		profile = mfacache.DefaultProfile
+		verb = os.Args[1]
+	case 4:
+		if os.Args[1] != "--profile" {
+			usage()
+		}
+		profile = os.Args[2]
+		verb = os.Args[3]
+	default:
 		usage()
 	}
 
-	switch os.Args[1] {
+	switch verb {
 
 	case "set":
-		doDelete()
-		doSet()
-		doShow()
+		doDelete(profile)
+		doSet(profile)
+		doShow(profile)
 
 	case "show":
-		doShow()
+		doShow(profile)
 
 	case "delete":
-		doDelete()
+		doDelete(profile)
 
 	default:
 		usage()
@@ -39,9 +51,9 @@ func main() {
 
 func usage() {
 	fmt.Printf("usage:\n")
-	fmt.Printf("  $ mfa set      # removes your stored creds, then reads your MFA token and stores a new set\n")
-	fmt.Printf("  $ mfa show     # reads your cached creds and displays them\n")
-	fmt.Printf("  $ mfa delete   # removes your stored creds\n")
+	fmt.Printf("  $ mfa [--profile NAME] set      # removes your stored creds, then reads your MFA token and stores a new set\n")
+	fmt.Printf("  $ mfa [--profile NAME] show     # reads your cached creds and displays them\n")
+	fmt.Printf("  $ mfa [--profile NAME] delete   # removes your stored creds\n")
 
 	os.Exit(1)
 }
@@ -52,13 +64,13 @@ func check(err error) {
 	}
 }
 
-func doSet() {
-	err := mfacache.StoreCredentials(mfacache.DefaultDuration)
+func doSet(profile string) {
+	err := mfacache.StoreCredentials(profile, mfacache.DefaultDuration)
 	check(err)
 }
 
-func doShow() {
-	path, err := mfacache.GetCachePath(mfacache.DefaultProfile)
+func doShow(profile string) {
+	path, err := mfacache.GetCachePath(profile)
 	check(err)
 
 	byts, err := ioutil.ReadFile(path)
@@ -72,6 +84,7 @@ func doShow() {
 	check(err)
 	d := t.Sub(time.Now()).Round(time.Second)
 
+	fmt.Printf("Profile         %s\n", profile)
 	fmt.Printf("Cache           %s\n", path)
 	fmt.Printf("AccessKeyId     %s\n", value["AccessKeyID"])
 	fmt.Printf("SecretAccessKey %s...\n", value["SecretAccessKey"].(string)[:4])
@@ -79,7 +92,7 @@ func doShow() {
 	fmt.Printf("ProviderName    %s\n", value["ProviderName"])
 	fmt.Printf("Expiration      %s (%s)\n", value["Expiration"], d)
 
-	sess, err := mfacache.NewSession()
+	sess, err := mfacache.NewSession(profile)
 	check(err)
 
 	svc := iam.New(sess)
@@ -89,8 +102,8 @@ func doShow() {
 	fmt.Printf("User count:     %d\n", len(output.Users))
 }
 
-func doDelete() {
-	path, err := mfacache.GetCachePath(mfacache.DefaultProfile)
+func doDelete(profile string) {
+	path, err := mfacache.GetCachePath(profile)
 	check(err)
 
 	_ = os.Remove(path)

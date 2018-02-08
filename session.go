@@ -30,7 +30,7 @@ const (
 // store the resulting credentials in the cache.
 //
 // AWS will error unless duration is the range [900...3600] seconds
-func StoreCredentials(duration time.Duration) error {
+func StoreCredentials(profile string, duration time.Duration) error {
 
 	// there is really no simple way to change the token duration:
 	// this trick actually works just fine for our purposes
@@ -52,7 +52,7 @@ func StoreCredentials(duration time.Duration) error {
 
 	// store the creds
 	cachedCreds := &CachedCredential{value, time.Now().UTC().Add(duration)}
-	err = cachedCreds.Write(DefaultProfile)
+	err = cachedCreds.Write(profile)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func StoreCredentials(duration time.Duration) error {
 // NewSession makes a session for hands-free usage: if a token
 // is required, it'll just error out. You can use the supplied app to generate
 // the token from the command line.
-func NewSession() (*session.Session, error) {
+func NewSession(profile string) (*session.Session, error) {
 
 	useMFA, ok := os.LookupEnv("MFACACHE")
 	if !ok || useMFA != "1" {
@@ -72,7 +72,7 @@ func NewSession() (*session.Session, error) {
 
 	// read the cached creds
 	cachedCreds := &CachedCredential{}
-	err := cachedCreds.Read(DefaultProfile)
+	err := cachedCreds.Read(profile)
 	if err != nil {
 		return nil, err
 	}
