@@ -41,6 +41,7 @@ func StoreCredentials(profile string, duration time.Duration) error {
 	opts := session.Options{
 		SharedConfigState:       session.SharedConfigEnable,
 		AssumeRoleTokenProvider: stscreds.StdinTokenProvider,
+		Profile:                 profile,
 	}
 	sess, err := session.NewSessionWithOptions(opts)
 
@@ -93,6 +94,7 @@ func NewSession(profile string) (*session.Session, error) {
 			Credentials: creds,
 		},
 		SharedConfigState: session.SharedConfigEnable,
+		Profile:           profile,
 	}
 	sess, err := session.NewSessionWithOptions(opts)
 	if err != nil {
