@@ -5,9 +5,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -15,34 +17,17 @@ import (
 )
 
 func main() {
-	var verb, profile string
 
-	switch len(os.Args) {
-	case 2:
-		profile = mfacache.DefaultProfile
-		verb = os.Args[1]
-	case 4:
-		if os.Args[1] != "--profile" {
-			usage()
-		}
-		profile = os.Args[2]
-		verb = os.Args[3]
-	default:
-		usage()
-	}
-
-	switch verb {
-
-	case "set":
-		doDelete(profile)
-		doSet(profile)
-		doShow(profile)
+	switch os.Args[1] {
 
 	case "show":
-		doShow(profile)
+		doShow()
+
+	case "set":
+		doSet()
 
 	case "delete":
-		doDelete(profile)
+		doDelete()
 
 	default:
 		usage()
@@ -51,7 +36,6 @@ func main() {
 
 func usage() {
 	fmt.Printf("usage:\n")
-	fmt.Printf("  $ mfa [--profile NAME] set      # removes your stored creds, then reads your MFA token and stores a new set\n")
 	fmt.Printf("  $ mfa [--profile NAME] show     # reads your cached creds and displays them\n")
 	fmt.Printf("  $ mfa [--profile NAME] delete   # removes your stored creds\n")
 
@@ -64,14 +48,25 @@ func check(err error) {
 	}
 }
 
-func doSet(profile string) {
-	err := mfacache.StoreCredentials(profile, mfacache.DefaultDuration)
+func doSet() {
+	cmd := exec.Command("aws", "s3", "ls")
+	err := cmd.Run()
 	check(err)
 }
 
-func doShow(profile string) {
+func doShow() {
+	profile, ok := os.LookupEnv("AWS_PROFILE")
+	if !ok || profile == "" {
+		profile = "default"
+	}
+
 	path, err := mfacache.GetCachePath(profile)
 	check(err)
+
+	_, err = os.Stat(path)
+	if err != nil {
+		check(errors.New("cache file not found: " + profile))
+	}
 
 	byts, err := ioutil.ReadFile(path)
 	check(err)
@@ -80,31 +75,45 @@ func doShow(profile string) {
 	err = json.Unmarshal(byts, &value)
 	check(err)
 
-	t, err := time.Parse(time.RFC3339, value["Expiration"].(string))
+	creds, ok := value["Credentials"].(map[string]interface{})
+	if !ok {
+		check(errors.New("unable to parse creds"))
+	}
+
+	t, err := time.Parse(time.RFC3339, creds["Expiration"].(string))
 	check(err)
 	d := t.Sub(time.Now()).Round(time.Second)
 
 	fmt.Printf("Profile         %s\n", profile)
 	fmt.Printf("Cache           %s\n", path)
-	fmt.Printf("AccessKeyId     %s\n", value["AccessKeyID"])
-	fmt.Printf("SecretAccessKey %s...\n", value["SecretAccessKey"].(string)[:4])
-	fmt.Printf("SessionToken    %s...\n", value["SessionToken"].(string)[:4])
-	fmt.Printf("ProviderName    %s\n", value["ProviderName"])
-	fmt.Printf("Expiration      %s (%s)\n", value["Expiration"], d)
+	fmt.Printf("AccessKeyId     %s\n", creds["AccessKeyId"].(string))
+	fmt.Printf("SecretAccessKey %s...\n", creds["SecretAccessKey"].(string)[:4])
+	fmt.Printf("SessionToken    %s...\n", creds["SessionToken"].(string)[:4])
+	fmt.Printf("Expiration      %s (%s)\n", creds["Expiration"], d)
 
-	sess, err := mfacache.NewSession(profile)
+	sess, err := mfacache.NewSession()
 	check(err)
 
 	svc := iam.New(sess)
-	input := iam.ListUsersInput{}
-	output, err := svc.ListUsers(&input)
+	input := iam.ListGroupsInput{}
+	output, err := svc.ListGroups(&input)
 	check(err)
-	fmt.Printf("User count:     %d\n", len(output.Users))
+	fmt.Printf("Groups count:     %d\n", len(output.Groups))
 }
 
-func doDelete(profile string) {
+func doDelete() {
+	profile, ok := os.LookupEnv("AWS_PROFILE")
+	if !ok || profile == "" {
+		profile = "default"
+	}
+
 	path, err := mfacache.GetCachePath(profile)
 	check(err)
+
+	_, err = os.Stat(path)
+	if err != nil {
+		check(errors.New("cache file not found: " + profile))
+	}
 
 	_ = os.Remove(path)
 }

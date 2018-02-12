@@ -1,21 +1,17 @@
 # mfacache
-Cache provider for AWS MFA tokens in Go
+Support for using cached MFA creds in Go
 
-This package provides the ability to create MFA-based credentials, store
-them in a cache file, and then use them to create a new AWS SDK Session.
+This package provides the ability to read the MFA-based credentials cached
+by the AWS CLI tools and use them to create a new AWS SDK Session.
 This allows one to, for example, take the "read-MFA-from-stdin" nastiness
 out of your application.
 
-To use, first call `mfacache.StoreCredentials`: this will ask you for your
-MFA token and then store the credentials to `$HOME/.aws/mfacache-PROFILE.json`.
-(You can use the supplied app to do this, via `$ mfacache set`.)
+To cache a set of credentials, run any AWS CLI command (or use the supplied app,
+via `$ mfacache set`.)
 
-Then, you can call `mfacache.NewSession` from within your now-noninteractive
-app. This will create a Session using the cached creds.
+You must be using the `AWS_PROFILE` environment variable for this to work.
 
-Note this is not an implementation of the infamous "file provider cache", as
-described in https://github.com/aws/aws-sdk-go/issues/1329 and
-https://github.com/wallix/awless/issues/109, although it admittedly did start
-out that way.
+Then, you can call `mfacache.NewSession` from within your (nonw now-noninteractive
+app). This will create a Session using the cached creds.
 
 -mpg
